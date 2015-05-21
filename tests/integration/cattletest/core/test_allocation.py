@@ -331,6 +331,48 @@ def test_port_constraint(new_context):
                 new_context.delete(c)
 
 
+@pytest.mark.skipif('True')
+def test_port_constraint_with_restart(new_context):
+    host1 = new_context.host
+    host2 = register_simulated_host(new_context.client)
+
+    client = new_context.client
+
+    containers = []
+
+    try:
+        c = new_context.create_container(requestedHostId=host1.id,
+                                         ports=['8081:81/tcp'])
+        containers.append(c)
+
+        c2 = new_context.super_create_container(validHostIds=[host1.id,
+                                                              host2.id],
+                                                ports=['8081:81/tcp'])
+        containers.append(c2)
+
+        # stop c2
+        c2 = client.wait_success(c2.stop())
+        assert c2.state == 'stopped'
+
+        # start up c3
+        c3 = new_context.super_create_container(validHostIds=[host1.id,
+                                                              host2.id],
+                                                ports=['8081:81/tcp'])
+        containers.append(c3)
+
+        # try restarting c2
+        c2.start()
+        c2 = client.wait_transitioning(c2)
+        assert c2.state == 'stopped'
+        assert c2.transitioning == 'error'
+        assert c2.transitioningMessage == 'Failed to find a placement'
+
+    finally:
+        for c in containers:
+            if c is not None:
+                new_context.delete(c)
+
+
 def test_request_host_override(new_context):
     host = new_context.host
     c = None
