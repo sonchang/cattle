@@ -9,9 +9,11 @@ import io.cattle.platform.allocator.service.AbstractAllocator;
 import io.cattle.platform.allocator.service.AllocationAttempt;
 import io.cattle.platform.allocator.service.AllocationCandidate;
 import io.cattle.platform.allocator.service.AllocationRequest;
+import io.cattle.platform.allocator.service.AllocationResponse;
 import io.cattle.platform.allocator.service.Allocator;
 import io.cattle.platform.core.model.Volume;
 import io.cattle.platform.lock.definition.LockDefinition;
+import io.cattle.platform.object.ObjectManager;
 import io.cattle.platform.simple.allocator.dao.QueryOptions;
 import io.cattle.platform.simple.allocator.dao.SimpleAllocatorDao;
 import io.cattle.platform.simple.allocator.dao.impl.AllocationCandidateIterator;
@@ -26,18 +28,20 @@ import java.util.List;
 import javax.inject.Inject;
 
 public class SimpleAllocator extends AbstractAllocator implements Allocator, Named {
+    @Inject
+    ObjectManager objectManager;
 
     String name = getClass().getSimpleName();
     SimpleAllocatorDao simpleAllocatorDao;
 
     @Override
-    protected synchronized boolean acquireLockAndAllocate(AllocationRequest request, AllocationAttempt attempt, Object deallocate) {
+    protected synchronized AllocationResponse acquireLockAndAllocate(AllocationRequest request, AllocationAttempt attempt, Object deallocate) {
         /* Overriding just to add synchronized */
         return super.acquireLockAndAllocate(request, attempt, deallocate);
     }
 
     @Override
-    protected synchronized boolean acquireLockAndDeallocate(AllocationRequest request) {
+    protected synchronized AllocationResponse acquireLockAndDeallocate(AllocationRequest request) {
         /* Overriding just to add synchronized */
         return super.acquireLockAndDeallocate(request);
     }
@@ -94,7 +98,7 @@ public class SimpleAllocator extends AbstractAllocator implements Allocator, Nam
             return null;
         }
 
-        return new NetworkAllocationCandidates(getObjectManager(), request);
+        return new NetworkAllocationCandidates(this.objectManager, request);
     }
 
     @Override

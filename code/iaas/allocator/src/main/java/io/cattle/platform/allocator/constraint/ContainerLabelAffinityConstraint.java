@@ -9,7 +9,7 @@ import java.util.Set;
 
 import com.google.common.collect.Multimap;
 
-public class ContainerLabelAffinityConstraint implements Constraint {
+public class ContainerLabelAffinityConstraint implements Constraint, UserDefinedConstraint {
     public static final String ENV_HEADER_AFFINITY_CONTAINER_LABEL = "affinity:container_label:";
     public static final String LABEL_HEADER_AFFINITY_CONTAINER_LABEL = "io.rancher.scheduler.affinity:container_label";
 
@@ -53,5 +53,10 @@ public class ContainerLabelAffinityConstraint implements Constraint {
     @Override
     public boolean isHardConstraint() {
         return (op == AffinityOps.EQ || op == AffinityOps.NE);
+    }
+
+    @Override
+    public String getFailureMessage() {
+        return "Host " + op.getDisplayMessage() + " have a container with label of " + labelKey + "=" + labelValue;
     }
 }

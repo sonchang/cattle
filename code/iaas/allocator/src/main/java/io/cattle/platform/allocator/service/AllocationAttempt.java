@@ -41,6 +41,8 @@ public class AllocationAttempt {
     List<AllocationCandidate> candidates = new ArrayList<AllocationCandidate>();
     AllocationCandidate matchedCandidate;
 
+    Set<Constraint> failedConstraints = new HashSet<Constraint>();
+
     public AllocationAttempt(Instance instance, Set<Host> hosts, Set<Volume> volumes, Map<Volume, Set<StoragePool>> pools, Set<Nic> nics,
             Map<Nic, Subnet> subnets) {
         super();
@@ -141,6 +143,14 @@ public class AllocationAttempt {
 
     public void setConstraints(List<Constraint> constraints) {
         this.constraints = constraints;
+    }
+
+    public void setFailedConstraints(Set<Constraint> failedConstraints) {
+        this.failedConstraints = failedConstraints;
+    }
+
+    public Set<Constraint> getFailedConstraints() {
+        return failedConstraints;
     }
 
     public List<AllocationCandidate> getCandidates() {

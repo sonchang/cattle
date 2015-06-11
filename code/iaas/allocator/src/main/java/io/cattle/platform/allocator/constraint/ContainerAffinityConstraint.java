@@ -10,7 +10,7 @@ import io.cattle.platform.object.ObjectManager;
 import java.util.List;
 import java.util.Set;
 
-public class ContainerAffinityConstraint implements Constraint {
+public class ContainerAffinityConstraint implements Constraint, UserDefinedConstraint {
 
     public static final String ENV_HEADER_AFFINITY_CONTAINER = "affinity:container";
     public static final String LABEL_HEADER_AFFINITY_CONTAINER = "io.rancher.scheduler." + ENV_HEADER_AFFINITY_CONTAINER;
@@ -61,5 +61,10 @@ public class ContainerAffinityConstraint implements Constraint {
     @Override
     public boolean isHardConstraint() {
         return (op == AffinityOps.EQ || op == AffinityOps.NE);
+    }
+
+    @Override
+    public String getFailureMessage() {
+        return "Host " + op.getDisplayMessage() + " have a container with the name " + containerIdentifier;
     }
 }

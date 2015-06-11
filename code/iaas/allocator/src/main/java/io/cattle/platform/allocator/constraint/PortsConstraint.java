@@ -8,7 +8,7 @@ import io.cattle.platform.core.model.Port;
 import java.util.List;
 import java.util.Set;
 
-public class PortsConstraint extends HardConstraint implements Constraint {
+public class PortsConstraint extends HardConstraint implements Constraint, UserDefinedConstraint {
 
     AllocatorDao allocatorDao;
 
@@ -60,5 +60,11 @@ public class PortsConstraint extends HardConstraint implements Constraint {
             sb.append("} ");
         }
         return String.format("host needs ports %s available", sb.toString());
+    }
+
+    @Override
+    public String getFailureMessage() {
+        // TODO: Possibly provide link to the constraint rather than describing it in detail
+        return "Port conflict";
     }
 }

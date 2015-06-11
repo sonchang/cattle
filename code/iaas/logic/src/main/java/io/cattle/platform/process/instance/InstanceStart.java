@@ -136,7 +136,17 @@ public class InstanceStart extends AbstractDefaultProcessHandler {
     }
 
     protected HandlerResult stopOrRemove(ProcessState state, Instance instance, ExecutionException e) {
-        if (InstanceCreate.isCreateStart(state) && !ContainerEventCreate.isNativeDockerStart(state) ) {
+        // HACK
+        if ("Failed to find a placement".equals(e.getMessage())) {
+            if (System.currentTimeMillis() > instance.getCreated().getTime() + (1000 * 30)) {
+                // move into error state
+                getObjectProcessManager().scheduleProcessInstance("instance.error", instance, null);
+            } else {
+                // retry
+                e.setResources(state.getResource());
+                throw e;
+            }
+        } else if (InstanceCreate.isCreateStart(state) && !ContainerEventCreate.isNativeDockerStart(state) ) {
             getObjectProcessManager().scheduleProcessInstance(InstanceConstants.PROCESS_STOP, instance,
                     CollectionUtils.asMap(InstanceConstants.REMOVE_OPTION, true));
         } else {

@@ -49,21 +49,27 @@ public abstract class AbstractAllocator implements Allocator {
     Timer allocateTimer = MetricsUtil.getRegistry().timer("allocator.allocate");
     Timer deallocateTimer = MetricsUtil.getRegistry().timer("allocator.deallocate");
 
+    @Inject
     AllocatorDao allocatorDao;
+    @Inject
     LockManager lockManager;
+    @Inject
     ObjectManager objectManager;
+    @Inject
     ObjectProcessManager processManager;
+
     List<AllocationConstraintsProvider> allocationConstraintProviders;
 
     @Override
-    public boolean allocate(final AllocationRequest request) {
-        if (!supports(request))
-            return false;
+    public AllocationResponse allocate(final AllocationRequest request) {
+        if (!supports(request)) {
+            return new AllocationResponse(false);
+        }
 
         try {
-            return lockManager.lock(new AllocateResourceLock(request), new LockCallback<Boolean>() {
+            return lockManager.lock(new AllocateResourceLock(request), new LockCallback<AllocationResponse>() {
                 @Override
-                public Boolean doWithLock() {
+                public AllocationResponse doWithLock() {
                     switch (request.getType()) {
                     case INSTANCE:
                         return allocateInstance(request);
@@ -71,24 +77,25 @@ public abstract class AbstractAllocator implements Allocator {
                         return allocateVolume(request);
                     }
 
-                    return false;
+                    return new AllocationResponse(false);
                 }
             });
         } catch (UnsupportedAllocation e) {
             log.info("Unsupported allocation for [{}] : {}", this, e.getMessage());
-            return false;
+            return new AllocationResponse(false);
         }
     }
 
     @Override
-    public boolean deallocate(final AllocationRequest request) {
-        if (!supports(request))
-            return false;
+    public AllocationResponse deallocate(final AllocationRequest request) {
+        if (!supports(request)) {
+            return new AllocationResponse(false);
+        }
 
         try {
-            return lockManager.lock(new AllocateResourceLock(request), new LockCallback<Boolean>() {
+            return lockManager.lock(new AllocateResourceLock(request), new LockCallback<AllocationResponse>() {
                 @Override
-                public Boolean doWithLock() {
+                public AllocationResponse doWithLock() {
                     Context c = deallocateTimer.time();
                     try {
                         return acquireLockAndDeallocate(request);
@@ -99,20 +106,20 @@ public abstract class AbstractAllocator implements Allocator {
             });
         } catch (UnsupportedAllocation e) {
             log.info("Unsupported allocation for [{}] : {}", this, e.getMessage());
-            return false;
+            return new AllocationResponse(false);
         }
     }
 
-    protected boolean acquireLockAndDeallocate(final AllocationRequest request) {
-        return lockManager.lock(getAllocationLock(request, null), new LockCallback<Boolean>() {
+    protected AllocationResponse acquireLockAndDeallocate(final AllocationRequest request) {
+        return lockManager.lock(getAllocationLock(request, null), new LockCallback<AllocationResponse>() {
             @Override
-            public Boolean doWithLock() {
+            public AllocationResponse doWithLock() {
                 return runDeallocation(request);
             }
         });
     }
 
-    protected boolean runDeallocation(final AllocationRequest request) {
+    protected AllocationResponse runDeallocation(final AllocationRequest request) {
         switch (request.getType()) {
         case INSTANCE:
             return deallocateInstance(request);
@@ -120,19 +127,19 @@ public abstract class AbstractAllocator implements Allocator {
             return deallocateVolume(request);
         }
 
-        return false;
+        return new AllocationResponse(false);
     }
 
-    protected boolean deallocateInstance(final AllocationRequest request) {
+    protected AllocationResponse deallocateInstance(final AllocationRequest request) {
         final Instance instance = objectManager.loadResource(Instance.class, request.getResourceId());
         Boolean stateCheck = AllocatorUtils.checkDeallocateState(request.getResourceId(), instance.getAllocationState(), "Instance");
         if (stateCheck != null) {
-            return stateCheck;
+            return new AllocationResponse(stateCheck);
         }
 
         releaseAllocation(instance);
 
-        return true;
+        return new AllocationResponse(true);
     }
 
     protected void releaseAllocation(Instance instance) {
@@ -143,11 +150,11 @@ public abstract class AbstractAllocator implements Allocator {
         allocatorDao.releaseAllocation(volume);
     }
 
-    protected boolean allocateInstance(final AllocationRequest request) {
+    protected AllocationResponse allocateInstance(final AllocationRequest request) {
         final Instance instance = objectManager.loadResource(Instance.class, request.getResourceId());
         Boolean stateCheck = AllocatorUtils.checkAllocateState(request.getResourceId(), instance.getAllocationState(), "Instance");
         if (stateCheck != null) {
-            return stateCheck;
+            return new AllocationResponse(stateCheck);
         }
 
         final Set<Host> hosts = new HashSet<Host>(allocatorDao.getHosts(instance));
@@ -168,9 +175,9 @@ public abstract class AbstractAllocator implements Allocator {
             }
         }
 
-        return lockManager.lock(new AllocateVolumesResourceLock(volumes), new LockCallback<Boolean>() {
+        return lockManager.lock(new AllocateVolumesResourceLock(volumes), new LockCallback<AllocationResponse>() {
             @Override
-            public Boolean doWithLock() {
+            public AllocationResponse doWithLock() {
                 AllocationAttempt attempt = new AllocationAttempt(instance, hosts, volumes, pools, nics, subnets);
 
                 return doAllocate(request, attempt, instance);
@@ -178,23 +185,23 @@ public abstract class AbstractAllocator implements Allocator {
         });
     }
 
-    protected boolean deallocateVolume(AllocationRequest request) {
+    protected AllocationResponse deallocateVolume(AllocationRequest request) {
         final Volume volume = objectManager.loadResource(Volume.class, request.getResourceId());
         Boolean stateCheck = AllocatorUtils.checkDeallocateState(request.getResourceId(), volume.getAllocationState(), "Volume");
         if (stateCheck != null) {
-            return stateCheck;
+            return new AllocationResponse(stateCheck);
         }
 
         releaseAllocation(volume);
 
-        return true;
+        return new AllocationResponse(true);
     }
 
-    protected boolean allocateVolume(AllocationRequest request) {
+    protected AllocationResponse allocateVolume(AllocationRequest request) {
         Volume volume = objectManager.loadResource(Volume.class, request.getResourceId());
         Boolean stateCheck = AllocatorUtils.checkAllocateState(request.getResourceId(), volume.getAllocationState(), "Volume");
         if (stateCheck != null) {
-            return stateCheck;
+            return new AllocationResponse(stateCheck);
         }
 
         Set<Volume> volumes = new HashSet<Volume>();
@@ -209,7 +216,7 @@ public abstract class AbstractAllocator implements Allocator {
         return doAllocate(request, attempt, volume);
     }
 
-    protected boolean doAllocate(final AllocationRequest request, final AllocationAttempt attempt, Object deallocate) {
+    protected AllocationResponse doAllocate(final AllocationRequest request, final AllocationAttempt attempt, Object deallocate) {
         AllocationLog log = getLog(request);
         populateConstraints(attempt, log);
 
@@ -221,7 +228,7 @@ public abstract class AbstractAllocator implements Allocator {
         }
     }
 
-    protected boolean acquireLockAndAllocate(final AllocationRequest request, final AllocationAttempt attempt, Object deallocate) {
+    protected AllocationResponse acquireLockAndAllocate(final AllocationRequest request, final AllocationAttempt attempt, Object deallocate) {
         lockManager.lock(getAllocationLock(request, attempt), new LockCallbackNoReturn() {
             @Override
             public void doWithLockNoResult() {
@@ -240,6 +247,7 @@ public abstract class AbstractAllocator implements Allocator {
                             removed = true;
                         }
                         if (!removed) {
+                            attempt.setFailedConstraints(failedConstraints);
                             break;
                         }
                     }
@@ -248,10 +256,10 @@ public abstract class AbstractAllocator implements Allocator {
         });
 
         if (attempt.getMatchedCandidate() == null) {
-            return false;
+            return new AllocationResponse(attempt.getFailedConstraints());
         }
 
-        return true;
+        return new AllocationResponse(true);
     }
 
     protected Set<Constraint> runAllocation(AllocationRequest request, AllocationAttempt attempt) {
@@ -420,42 +428,6 @@ public abstract class AbstractAllocator implements Allocator {
     }
 
     protected abstract boolean supports(AllocationRequest request);
-
-    public LockManager getLockManager() {
-        return lockManager;
-    }
-
-    @Inject
-    public void setLockManager(LockManager lockManager) {
-        this.lockManager = lockManager;
-    }
-
-    public ObjectManager getObjectManager() {
-        return objectManager;
-    }
-
-    @Inject
-    public void setObjectManager(ObjectManager objectManager) {
-        this.objectManager = objectManager;
-    }
-
-    public AllocatorDao getAllocatorDao() {
-        return allocatorDao;
-    }
-
-    @Inject
-    public void setAllocatorDao(AllocatorDao allocatorDao) {
-        this.allocatorDao = allocatorDao;
-    }
-
-    public ObjectProcessManager getProcessManager() {
-        return processManager;
-    }
-
-    @Inject
-    public void setProcessManager(ObjectProcessManager processManager) {
-        this.processManager = processManager;
-    }
 
     public List<AllocationConstraintsProvider> getAllocationConstraintProviders() {
         return allocationConstraintProviders;

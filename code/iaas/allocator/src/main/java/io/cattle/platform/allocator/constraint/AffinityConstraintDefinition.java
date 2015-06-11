@@ -2,17 +2,19 @@ package io.cattle.platform.allocator.constraint;
 
 public class AffinityConstraintDefinition {
     public enum AffinityOps {
-        SOFT_NE("!=~", "_soft_ne"),
-        SOFT_EQ("==~", "_soft"),
-        NE("!=", "_ne"),
-        EQ("==", "");
+        SOFT_NE("!=~", "_soft_ne", "should not"),
+        SOFT_EQ("==~", "_soft", "should"),
+        NE("!=", "_ne", "must not"),
+        EQ("==", "", "must");
 
         String envSymbol;
         String labelSymbol;
+        String displayString;
 
-        private AffinityOps(String envSymbol, String labelSymbol) {
+        private AffinityOps(String envSymbol, String labelSymbol, String displayString) {
             this.envSymbol = envSymbol;
             this.labelSymbol = labelSymbol;
+            this.displayString = displayString;
         }
 
         public String getEnvSymbol() {
@@ -21,6 +23,10 @@ public class AffinityConstraintDefinition {
 
         public String getLabelSymbol() {
             return labelSymbol;
+        }
+
+        public String getDisplayMessage() {
+            return displayString;
         }
     }
 

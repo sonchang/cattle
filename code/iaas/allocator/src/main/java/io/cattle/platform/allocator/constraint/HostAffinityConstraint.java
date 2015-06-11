@@ -9,7 +9,7 @@ import io.cattle.platform.core.constants.CommonStatesConstants;
 import java.util.Map;
 import java.util.Set;
 
-public class HostAffinityConstraint implements Constraint {
+public class HostAffinityConstraint implements Constraint, UserDefinedConstraint {
     public static final String ENV_HEADER_AFFINITY_HOST_LABEL = "constraint:";
     public static final String LABEL_HEADER_AFFINITY_HOST_LABEL = "io.rancher.scheduler.affinity:host_label";
 
@@ -65,5 +65,10 @@ public class HostAffinityConstraint implements Constraint {
     @Override
     public boolean isHardConstraint() {
         return (op == AffinityOps.EQ || op == AffinityOps.NE);
+    }
+
+    @Override
+    public String getFailureMessage() {
+        return "Host " + op.getDisplayMessage() + " have a host label of " + labelKey + "=" + labelValue;
     }
 }
